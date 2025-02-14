@@ -23,3 +23,15 @@ A simple REST API to shorten urls.
 ## Alternatives
 * Counter Approach - Adding a counter to maintain uniqueness. Compromises security due to predictability.
 * Base62 Encoding/Hashing - Using a prefix if a hash or base62 encoding is similar to the NanoID approach as the probability of collision depends again on the Birthday problem. However, NanoId provides simplicity.
+
+# Development Steps
+1. Initialize Go Project
+```
+go mod init url-shortener
+go mod tidy
+```
+2. Generate Server Interface From oapi-codegen
+```
+oapi-codegen --config=api/server.cfg.yaml api/openapi.yaml
+oapi-codegen --config=api/types.cfg.yaml api/openapi.yaml
+```
