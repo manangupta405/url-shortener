@@ -24,6 +24,16 @@ A simple REST API to shorten urls.
 * Counter Approach - Adding a counter to maintain uniqueness. Compromises security due to predictability.
 * Base62 Encoding/Hashing - Using a prefix if a hash or base62 encoding is similar to the NanoID approach as the probability of collision depends again on the Birthday problem. However, NanoId provides simplicity.
 
+# Steps to run
+
+1. Modify create .env file similar to template.env and config.json file similar to template.config.json
+2. Make sure to replace **DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD** accordingly. **Keep Database credentials consistent in .env and config.json**
+3. Run using docker compose
+```
+docker compose build
+docker compose up -d
+```
+
 # Development Steps
 1. Initialize Go Project
 ```
@@ -35,3 +45,6 @@ go mod tidy
 oapi-codegen --config=api/server.cfg.yaml api/openapi.yaml
 oapi-codegen --config=api/types.cfg.yaml api/openapi.yaml
 ```
+3. Implement Initial
+4. Add Docker & Postgresql
+5. Complete Implementation
