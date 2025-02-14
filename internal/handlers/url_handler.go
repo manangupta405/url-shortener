@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	api "url-shortener/generated"
 	"url-shortener/internal/services"
@@ -27,6 +28,7 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 
 	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, req.Expiry)
 	if err != nil {
+		log.Printf(err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create short URL"})
 		return
 	}

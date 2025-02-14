@@ -18,6 +18,16 @@ services:
       - ./postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d  # Mount init script
 
+  # Redis Database
+  redis:
+    image: redis:7
+    container_name: url-shortener-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
   # URL Shortener API
   url-shortener:
     build:
@@ -29,15 +39,10 @@ services:
       - postgres
     env_file:
       - .env
-    environment:
-      DB_TYPE: ${DB_TYPE}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "8080:8080"
+    volumes:
+      - ./logs:/var/log/url-shortener
 
   # Cronjob for cleaning expired URLs
   url-cleaner:
@@ -59,3 +64,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

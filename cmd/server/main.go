@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"time"
+
 	// Import net/http for status codes
 	api "url-shortener/generated" // Import the generated package
 	"url-shortener/internal/config"
@@ -21,17 +23,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	db, err := db.NewPostgresConnection(&defaultConfig.Database)
+	dbConn, err := db.NewPostgresConnection(&defaultConfig.Database)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer dbConn.Close()
 
-	pgRepo := repositories.NewURLRepositoryPostgresql(db)
-	urlStatPgRepo := repositories.NewURLStatisticsRepositoryPostgresql(db)
-	idGenerator := utils.NewNanoIDGenerator(6)
+	pgRepo := repositories.NewURLRepositoryPostgresql(dbConn)
+	redisClient := db.NewRedisClient(&defaultConfig.Redis)
+	redisRepo := repositories.NewURLRepositoryRedis(redisClient, time.Hour)
 	timeProvider := utils.NewTimeProvider()
-	urlService := services.NewURLService(pgRepo, urlStatPgRepo, idGenerator, timeProvider)
+	urlRepo := repositories.NewURLRepository(redisRepo, pgRepo, timeProvider)
+	urlStatPgRepo := repositories.NewURLStatisticsRepositoryPostgresql(dbConn)
+	idGenerator := utils.NewNanoIDGenerator(12)
+
+	urlService := services.NewURLService(urlRepo, urlStatPgRepo, idGenerator, timeProvider)
 	urlStatService := services.NewURLStatsService(urlStatPgRepo)
 
 	// Implement the generated ServerInterface:

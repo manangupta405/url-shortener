@@ -30,3 +30,5 @@ config.json
 cmd/server/__debug*
 
 postgres_data*
+redis_data*
+logs*

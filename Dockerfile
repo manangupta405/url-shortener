@@ -24,4 +24,4 @@ COPY --from=build /url-shortener/cmd/server/url-shortener ./cmd/server/url-short
 COPY --from=build /url-shortener/config.json ./config.json
 
 EXPOSE 8080
-ENTRYPOINT ["./cmd/server/url-shortener"]
+CMD ["sh", "-c", "./cmd/server/url-shortener >> /var/log/url-shortener/url-shortener.log 2>&1"]
