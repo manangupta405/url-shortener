@@ -15,22 +15,27 @@ import (
 	"url-shortener/internal/models"
 	mocks "url-shortener/internal/services/mocks"
 
+	utilMocks "url-shortener/internal/utils/mocks"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-var mockExpiryTime, _ = time.Parse(time.RFC3339, "2024-05-30T12:34:56Z")
+var mockExpiryTime time.Time
 
-func setupHandler() (*mocks.URLService, *mocks.URLStatsService, *URLHandler) {
+func setupHandler() (*mocks.URLService, *mocks.URLStatsService, *utilMocks.TimeProvider, *URLHandler) {
+	mockExpiryTime = time.Now().Add(1 * time.Hour).UTC()
 	mockURLService := mocks.URLService{}
 	mockURLStatsService := mocks.URLStatsService{}
-	return &mockURLService, &mockURLStatsService, NewURLHandler(&mockURLService, &mockURLStatsService)
+	mockTimeProvier := utilMocks.TimeProvider{}
+	return &mockURLService, &mockURLStatsService, &mockTimeProvier, NewURLHandler(&mockURLService, &mockURLStatsService, &mockTimeProvier)
 }
 
 func TestCreateShortURL_Success(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, timeProvider, handler := setupHandler()
 	mockURLService.On("CreateShortURL", mock.Anything, "https://www.example.com", &mockExpiryTime).Return("shortpath", nil).Once()
+	timeProvider.On("Now").Return(time.Now()).Once()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -46,7 +51,7 @@ func TestCreateShortURL_Success(t *testing.T) {
 }
 
 func TestCreateShortURL_InvalidURL(t *testing.T) {
-	_, _, handler := setupHandler()
+	_, _, _, handler := setupHandler()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -60,7 +65,7 @@ func TestCreateShortURL_InvalidURL(t *testing.T) {
 }
 
 func TestRedirectToOriginalURL_Success(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, _, handler := setupHandler()
 	mockURLService.On("GetLongURL", mock.Anything, "shortpath").Return("https://www.example.com", nil).Once()
 
 	w := httptest.NewRecorder()
@@ -78,7 +83,7 @@ func TestRedirectToOriginalURL_Success(t *testing.T) {
 }
 
 func TestDeleteShortURL_Success(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, _, handler := setupHandler()
 	mockURLService.On("DeleteURL", mock.Anything, "shortpath").Return(nil).Once()
 
 	w := httptest.NewRecorder()
@@ -93,8 +98,9 @@ func TestDeleteShortURL_Success(t *testing.T) {
 }
 
 func TestUpdateShortURL_Success(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, timeProvider, handler := setupHandler()
 	mockURLService.On("UpdateShortURL", mock.Anything, "https://www.updated-example.com", "shortpath", &mockExpiryTime).Return(nil).Once()
+	timeProvider.On("Now").Return(time.Now()).Once()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -110,7 +116,7 @@ func TestUpdateShortURL_Success(t *testing.T) {
 }
 
 func TestGetShortURLStats_Success(t *testing.T) {
-	_, mockURLStatsService, handler := setupHandler()
+	_, mockURLStatsService, _, handler := setupHandler()
 	mockStats := &models.URLStatistics{ShortPath: "shortpath", Last24Hours: 5, PastWeek: 5, AllTime: 5}
 	mockURLStatsService.On("GetURLStatistics", mock.Anything, "shortpath").Return(mockStats, nil).Once()
 
@@ -126,7 +132,7 @@ func TestGetShortURLStats_Success(t *testing.T) {
 }
 
 func TestGetShortURLDetails_Success(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, _, handler := setupHandler()
 	mockDetails := &models.URL{ShortPath: "shortpath", OriginalURL: "https://www.example.com", Expiry: &mockExpiryTime}
 	mockURLService.On("GetURLDetails", mock.Anything, "shortpath").Return(mockDetails, nil).Once()
 
@@ -141,7 +147,7 @@ func TestGetShortURLDetails_Success(t *testing.T) {
 	mockURLService.AssertExpectations(t)
 }
 func TestGetShortURLDetails_NotFound(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, _, handler := setupHandler()
 	mockURLService.On("GetURLDetails", mock.Anything, "shortpath").Return(nil, nil).Once()
 
 	w := httptest.NewRecorder()
@@ -156,7 +162,7 @@ func TestGetShortURLDetails_NotFound(t *testing.T) {
 }
 
 func TestGetShortURLStats_NotFound(t *testing.T) {
-	_, mockURLStatsService, handler := setupHandler()
+	_, mockURLStatsService, _, handler := setupHandler()
 	mockURLStatsService.On("GetURLStatistics", mock.Anything, "shortpath").Return(nil, nil).Once()
 
 	w := httptest.NewRecorder()
@@ -171,7 +177,7 @@ func TestGetShortURLStats_NotFound(t *testing.T) {
 }
 
 func TestRedirectToOriginalURL_NotFound(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, _, handler := setupHandler()
 	mockURLService.On("GetLongURL", mock.Anything, "shortpath").Return("", nil).Once()
 
 	w := httptest.NewRecorder()
@@ -186,7 +192,7 @@ func TestRedirectToOriginalURL_NotFound(t *testing.T) {
 	mockURLStatsService.AssertExpectations(t)
 }
 func TestDeleteShortURL_Failure(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, _, handler := setupHandler()
 	mockURLService.On("DeleteURL", mock.Anything, "shortpath").Return(errors.New("failed to delete")).Once()
 
 	w := httptest.NewRecorder()
@@ -201,8 +207,9 @@ func TestDeleteShortURL_Failure(t *testing.T) {
 }
 
 func TestUpdateShortURL_Failure(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, timeProvider, handler := setupHandler()
 	mockURLService.On("UpdateShortURL", mock.Anything, "https://www.updated-example.com", "shortpath", &mockExpiryTime).Return(errors.New("failed to update")).Once()
+	timeProvider.On("Now").Return(time.Now()).Once()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -218,7 +225,7 @@ func TestUpdateShortURL_Failure(t *testing.T) {
 }
 
 func TestGetShortURLStats_Failure(t *testing.T) {
-	_, mockURLStatsService, handler := setupHandler()
+	_, mockURLStatsService, _, handler := setupHandler()
 	mockURLStatsService.On("GetURLStatistics", mock.Anything, "shortpath").Return(nil, errors.New("failed to get stats")).Once()
 
 	w := httptest.NewRecorder()
@@ -233,7 +240,7 @@ func TestGetShortURLStats_Failure(t *testing.T) {
 }
 
 func TestGetShortURLDetails_Failure(t *testing.T) {
-	mockURLService, _, handler := setupHandler()
+	mockURLService, _, _, handler := setupHandler()
 	mockURLService.On("GetURLDetails", mock.Anything, "shortpath").Return(nil, errors.New("failed to get details")).Once()
 
 	w := httptest.NewRecorder()
@@ -247,7 +254,7 @@ func TestGetShortURLDetails_Failure(t *testing.T) {
 	mockURLService.AssertExpectations(t)
 }
 func TestUpdateShortURL_InvalidURL(t *testing.T) {
-	_, _, handler := setupHandler()
+	_, _, _, handler := setupHandler()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -262,7 +269,7 @@ func TestUpdateShortURL_InvalidURL(t *testing.T) {
 }
 
 func TestUpdateShortURL_InvalidRequest(t *testing.T) {
-	_, _, handler := setupHandler()
+	_, _, _, handler := setupHandler()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -274,7 +281,7 @@ func TestUpdateShortURL_InvalidRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 func TestCreateShortURL_InvalidRequest(t *testing.T) {
-	_, _, handler := setupHandler()
+	_, _, _, handler := setupHandler()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -286,7 +293,7 @@ func TestCreateShortURL_InvalidRequest(t *testing.T) {
 }
 
 func TestRedirectToOriginalURL_Failure(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, _, handler := setupHandler()
 	mockURLService.On("GetLongURL", mock.Anything, "shortpath").Return("", errors.New("failed to get long URL")).Once()
 
 	w := httptest.NewRecorder()
@@ -302,8 +309,9 @@ func TestRedirectToOriginalURL_Failure(t *testing.T) {
 }
 
 func TestCreateShortURL_InternalError(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, timeProvider, handler := setupHandler()
 	mockURLService.On("CreateShortURL", mock.Anything, "https://www.example.com", &mockExpiryTime).Return("", errors.New("failed to create short URL")).Once()
+	timeProvider.On("Now").Return(time.Now()).Once()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -319,8 +327,9 @@ func TestCreateShortURL_InternalError(t *testing.T) {
 }
 
 func TestCreateShortURL_SuccessHTTPS(t *testing.T) {
-	mockURLService, mockURLStatsService, handler := setupHandler()
+	mockURLService, mockURLStatsService, timeProvider, handler := setupHandler()
 	mockURLService.On("CreateShortURL", mock.Anything, "https://www.example.com", &mockExpiryTime).Return("shortpath", nil).Once()
+	timeProvider.On("Now").Return(time.Now()).Once()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

@@ -22,11 +22,11 @@ func TestURLStatisticsRepositoryPostgresqlImpl_GetURLStatistics(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"last_24_hours", "past_week", "all_time"}).
 		AddRow(10, 100, 1000)
 
-	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '24 hours'\\) AS last_24_hours,    								COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '7 days'\\) AS past_week,    								COUNT\\(\\*\\) AS all_time							FROM url_access_logs							WHERE short_path = \\$1;").WithArgs(shortPath).WillReturnRows(rows)
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '24 hours'\\) AS last_24_hours, COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '7 days'\\) AS past_week, COUNT\\(\\*\\) AS all_time FROM url_access_logs WHERE short_path = \\$1;").WithArgs(shortPath).WillReturnRows(rows)
 
 	stats, err := repo.GetURLStatistics(ctx, shortPath)
 
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	assert.NotNil(t, stats)
 	assert.Equal(t, shortPath, stats.ShortPath)
 	assert.Equal(t, int64(10), stats.Last24Hours)
@@ -43,7 +43,7 @@ func TestURLStatisticsRepositoryPostgresqlImpl_GetURLStatistics_Error(t *testing
 	ctx := context.Background()
 	shortPath := "shortPath"
 
-	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '24 hours'\\) AS last_24_hours,    								COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '7 days'\\) AS past_week,    								COUNT\\(\\*\\) AS all_time							FROM url_access_logs							WHERE short_path = \\$1;").WithArgs(shortPath).WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '24 hours'\\) AS last_24_hours, COUNT\\(\\*\\) FILTER \\(WHERE accessed_at >= NOW\\(\\) - INTERVAL '7 days'\\) AS past_week, COUNT\\(\\*\\) AS all_time FROM url_access_logs WHERE short_path = \\$1;").WithArgs(shortPath).WillReturnError(fmt.Errorf("some error"))
 
 	stats, err := repo.GetURLStatistics(ctx, shortPath)
 

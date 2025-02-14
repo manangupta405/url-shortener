@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"log"
 	"time"
+
 	"url-shortener/internal/models"
 	"url-shortener/internal/repositories"
 	"url-shortener/internal/utils"
@@ -30,12 +32,13 @@ func NewURLService(repo repositories.URLRepository, statRepo repositories.URLSta
 
 // CreateShortURL implements URLService.
 func (s *urlServiceImpl) CreateShortURL(ctx context.Context, originalURL string, expiry *time.Time) (string, error) {
-	shortUrl, err := s.repo.GetShortURL(ctx, originalURL)
+	existingURL, err := s.repo.GetShortURL(ctx, originalURL)
 	if err != nil {
 		return "", err
 	}
-	if shortUrl != nil {
-		return shortUrl.ShortPath, nil
+	if existingURL != nil {
+		return existingURL.ShortPath, nil
+
 	}
 	currentTime := s.timeProvider.Now()
 	shortURL := &models.URL{
@@ -83,6 +86,7 @@ func (s *urlServiceImpl) GetLongURL(ctx context.Context, shortPath string) (stri
 func (s *urlServiceImpl) DeleteURL(ctx context.Context, shortPath string) error {
 	err := s.repo.DeleteShortURL(ctx, shortPath, s.timeProvider.Now(), "system")
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
@@ -101,6 +105,7 @@ func (s *urlServiceImpl) UpdateShortURL(ctx context.Context, originalUrl string,
 	}
 	err := s.repo.UpdateShortURL(ctx, urlUpdate)
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
@@ -111,9 +116,6 @@ func (s *urlServiceImpl) GetURLDetails(ctx context.Context, shortPath string) (*
 	url, err := s.repo.GetOriginalURL(ctx, shortPath)
 	if err != nil {
 		return nil, err
-	}
-	if url == nil {
-		return nil, nil
 	}
 	return url, nil
 }

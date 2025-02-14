@@ -3,8 +3,11 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 	"url-shortener/internal/models"
+
+	"log"
 )
 
 type urlRepositoryPostgresqlImpl struct {
@@ -21,13 +24,14 @@ func (r *urlRepositoryPostgresqlImpl) GetShortURL(ctx context.Context, originalU
 	url := &models.URL{}
 	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // URL not found
 		}
-		return nil, err
+		log.Printf("Error getting short URL from database: %v, originalURL: %s", err, originalURL)
+		return nil, ErrDBError
 	}
 	if url.Expiry != nil && url.Expiry.Before(time.Now()) {
-		return nil, nil
+		return nil, nil // URL expired
 	}
 	return url, nil
 }
@@ -38,13 +42,14 @@ func (r *urlRepositoryPostgresqlImpl) GetOriginalURL(ctx context.Context, shortP
 	url := &models.URL{}
 	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrURLNotFound //Specific error for no rows
 		}
-		return nil, err
+		log.Printf("Error getting original URL from database: %v, shortPath: %s", err, shortPath)
+		return nil, ErrDBError
 	}
 	if url.Expiry != nil && url.Expiry.Before(time.Now()) {
-		return nil, nil
+		return nil, ErrURLExpired //Specific error for expired URL
 	}
 	return url, nil
 }
@@ -52,14 +57,19 @@ func (r *urlRepositoryPostgresqlImpl) GetOriginalURL(ctx context.Context, shortP
 // UpdateShortURL implements URLRepository.
 func (r *urlRepositoryPostgresqlImpl) UpdateShortURL(ctx context.Context, url *models.URL) error {
 	_, err := r.db.ExecContext(ctx, PG_UPDATE_SHORT_URL, url.OriginalURL, url.Expiry, url.ModifiedAt, url.ModifiedBy, url.ShortPath)
-	return err
+	if err != nil {
+		log.Printf("Error updating short URL in database: %v, url: %+v", err, url)
+		return ErrDBError
+	}
+	return nil
 }
 
 // DeleteShortURL implements URLRepository.
 func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		log.Printf("Error starting transaction: %v, shortPath: %s", err, shortPath)
+		return ErrDBError
 	}
 	defer tx.Rollback() // Rollback on error
 
@@ -69,7 +79,11 @@ func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortP
 	urlArchive := &models.URLArchive{}
 	err = row.Scan(&urlArchive.ShortPath, &urlArchive.OriginalURL, &urlArchive.Expiry, &urlArchive.CreatedAt, &urlArchive.CreatedBy, &urlArchive.ModifiedAt, &urlArchive.ModifiedBy)
 	if err != nil {
-		return err // Handle the error appropriately
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrURLNotFound // URL not found
+		}
+		log.Printf("Error retrieving URL before deletion: %v, shortPath: %s", err, shortPath)
+		return ErrDBError
 	}
 
 	urlArchive.DeletedAt = &currentTime
@@ -78,13 +92,14 @@ func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortP
 	// Insert into urls_archive
 	_, err = tx.ExecContext(ctx, PG_INSERT_URL_ARCHIVE, urlArchive.ShortPath, urlArchive.OriginalURL, urlArchive.Expiry, urlArchive.CreatedAt, urlArchive.CreatedBy, urlArchive.ModifiedAt, urlArchive.ModifiedBy, urlArchive.DeletedAt, urlArchive.DeletedBy)
 	if err != nil {
-		return err
+		log.Printf("Error inserting into url_archive: %v, urlArchive: %+v", err, urlArchive)
 	}
 
-	// Insert into urls_archive
+	// Delete from urls
 	_, err = tx.ExecContext(ctx, PG_DELETE_SHORT_URL, urlArchive.ShortPath)
 	if err != nil {
-		return err
+		log.Printf("Error deleting URL from urls table: %v, shortPath: %v", err, urlArchive.ShortPath)
+		return ErrDBError
 	}
 
 	return tx.Commit()
@@ -92,6 +107,10 @@ func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortP
 
 // InsertShortURL implements URLRepository.
 func (r *urlRepositoryPostgresqlImpl) InsertShortURL(ctx context.Context, url *models.URL) error {
-	_, err := r.db.ExecContext(ctx, PG_INSERT_SHORT_URL, url.ShortPath, url.OriginalURL, url.Expiry, url.CreatedAt, url.CreatedBy) // using system now, will be replaced by user
-	return err
+	_, err := r.db.ExecContext(ctx, PG_INSERT_SHORT_URL, url.ShortPath, url.OriginalURL, url.Expiry, url.CreatedAt, url.CreatedBy)
+	if err != nil {
+		log.Printf("Error inserting short URL into database: %v, url: %+v", err, url)
+		return ErrDBError
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 	"url-shortener/internal/db"
 	"url-shortener/internal/models"
@@ -47,6 +48,7 @@ func (r *urlRepositoryRedisImpl) UpdateShortURL(ctx context.Context, url *models
 func (r *urlRepositoryRedisImpl) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error {
 	err := r.client.Del(ctx, shortPath).Err()
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
@@ -55,6 +57,7 @@ func (r *urlRepositoryRedisImpl) DeleteShortURL(ctx context.Context, shortPath s
 func (r *urlRepositoryRedisImpl) InsertShortURL(ctx context.Context, url *models.URL) error {
 	data, err := json.Marshal(url)
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	expiry := r.cacheExpiry
@@ -63,6 +66,7 @@ func (r *urlRepositoryRedisImpl) InsertShortURL(ctx context.Context, url *models
 	}
 	err = r.client.Set(ctx, url.ShortPath, string(data), expiry).Err()
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil

@@ -60,16 +60,23 @@ func (r *urlRepositoryImpl) GetOriginalURL(ctx context.Context, shortPath string
 }
 
 func (r *urlRepositoryImpl) UpdateShortURL(ctx context.Context, url *models.URL) error {
-	err := r.postgresRepo.UpdateShortURL(ctx, url)
+	err := r.redisRepo.DeleteShortURL(ctx, url.ShortPath, r.timeProvider.Now(), "system")
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
-	return r.redisRepo.DeleteShortURL(ctx, url.ShortPath, r.timeProvider.Now(), "system")
+	err = r.postgresRepo.UpdateShortURL(ctx, url)
+	if err != nil {
+		log.Printf(err.Error())
+		return err
+	}
+	return nil
 }
 
 func (r *urlRepositoryImpl) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error {
 	err := r.postgresRepo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return r.redisRepo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
@@ -78,9 +85,8 @@ func (r *urlRepositoryImpl) DeleteShortURL(ctx context.Context, shortPath string
 func (r *urlRepositoryImpl) InsertShortURL(ctx context.Context, url *models.URL) error {
 	err := r.postgresRepo.InsertShortURL(ctx, url)
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
 }
-
-var ErrCacheMiss = errors.New("cache miss")

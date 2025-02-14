@@ -154,7 +154,7 @@ func TestURLRepositoryPostgresqlImpl_DeleteShortURL_SelectError(t *testing.T) {
 	deletedBy := "testuser"
 	mockDB.ExpectBegin()
 	mockDB.ExpectQuery("SELECT short_path, original_url, expiry, created_at, created_by, modified_at, modified_by FROM urls WHERE short_path = \\$1").WithArgs(shortPath).WillReturnError(fmt.Errorf("select error"))
-
+	mockDB.ExpectRollback()
 	err = repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
 	assert.NotNil(t, err)
 }
@@ -173,6 +173,7 @@ func TestURLRepositoryPostgresqlImpl_DeleteShortURL_InsertArchiveError(t *testin
 	mockDB.ExpectExec("INSERT INTO urls_archive (.+) VALUES (.+)").
 		WithArgs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything). // Match any args
 		WillReturnError(fmt.Errorf("insert archive error"))
+	mockDB.ExpectRollback()
 
 	err = repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
 	assert.NotNil(t, err)
@@ -191,6 +192,7 @@ func TestURLRepositoryPostgresqlImpl_DeleteShortURL_DeleteError(t *testing.T) {
 	mockDB.ExpectBegin()
 	mockDB.ExpectExec("DELETE FROM urls WHERE short_path = \\$1").WithArgs(shortPath).WillReturnError(fmt.Errorf("delete error"))
 
+	mockDB.ExpectRollback()
 	err = repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
 	assert.NotNil(t, err)
 }
@@ -299,6 +301,6 @@ func TestURLRepositoryPostgresqlImpl_GetOriginalURL_NoRowsError(t *testing.T) {
 	mock.ExpectQuery("SELECT short_path, original_url, expiry, created_at, created_by, modified_at, modified_by FROM urls WHERE short_path = ?").WithArgs(shortPath).WillReturnError(sql.ErrNoRows)
 
 	url, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, url)
 }

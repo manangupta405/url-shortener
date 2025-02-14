@@ -13,6 +13,7 @@ import (
 	"url-shortener/internal/services"
 	"url-shortener/internal/utils"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,11 +42,18 @@ func main() {
 	urlService := services.NewURLService(urlRepo, urlStatPgRepo, idGenerator, timeProvider)
 	urlStatService := services.NewURLStatsService(urlStatPgRepo)
 
-	serverInterface := handlers.NewURLHandler(urlService, urlStatService)
+	serverInterface := handlers.NewURLHandler(urlService, urlStatService, timeProvider)
 
 	router := gin.New()
 	router.Use(gin.LoggerWithFormatter(utils.CustomLogFormatter))
-
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // Allow all domains (change for production)
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	api.RegisterHandlersWithOptions(router, serverInterface, api.GinServerOptions{
 		BaseURL: "", // Or set a base path if needed
 		ErrorHandler: func(c *gin.Context, err error, statusCode int) {

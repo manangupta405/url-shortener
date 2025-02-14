@@ -108,9 +108,12 @@ func TestUpdateShortURL_Success(t *testing.T) {
 }
 
 func TestUpdateShortURL_Error(t *testing.T) {
-	_, postgresRepo, _, repo := setupRepository()
+	redisRepo, postgresRepo, timeProvider, repo := setupRepository()
 	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
 	postgresRepo.On("UpdateShortURL", mock.Anything, mockURL).Return(assert.AnError).Once()
+
+	timeProvider.On("Now").Return(time.Now()).Once()
+	redisRepo.On("DeleteShortURL", mock.Anything, "shortpath", mock.Anything, "system").Return(nil).Once()
 	err := repo.UpdateShortURL(context.Background(), mockURL)
 
 	assert.Error(t, err)

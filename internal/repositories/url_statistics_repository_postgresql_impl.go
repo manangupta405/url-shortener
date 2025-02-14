@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
 	"url-shortener/internal/models"
 )
 
@@ -17,11 +18,15 @@ func NewURLStatisticsRepositoryPostgresql(db *sql.DB) URLStatisticsRepository {
 
 func (r *urlStatisticsRepositoryPostgresqlImpl) GetURLStatistics(ctx context.Context, shortPath string) (*models.URLStatistics, error) {
 	row := r.db.QueryRowContext(ctx, PG_GET_URL_STATISTICS, shortPath)
-	statistics := models.URLStatistics{ShortPath: shortPath}
+	var statistics models.URLStatistics
 	err := row.Scan(&statistics.Last24Hours, &statistics.PastWeek, &statistics.AllTime)
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, ErrURLStatisticsNotFound
+		}
+		return nil, ErrInternalServerError
 	}
+	statistics.ShortPath = shortPath
 	return &statistics, nil
 }
 

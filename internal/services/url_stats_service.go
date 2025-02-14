@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"log"
 	"time"
 	"url-shortener/internal/models"
 	"url-shortener/internal/repositories"
@@ -32,6 +33,7 @@ func (s *urlStatsServiceImpl) GetURLStatistics(ctx context.Context, shortPath st
 func (s *urlStatsServiceImpl) InsertAccessLog(ctx context.Context, shortPath string, accessedAt time.Time) error {
 	err := s.repo.InsertAccessLog(ctx, shortPath, accessedAt)
 	if err != nil {
+		log.Printf(err.Error())
 		return err
 	}
 	return nil
