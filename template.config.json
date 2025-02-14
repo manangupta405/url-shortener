@@ -8,5 +8,9 @@
     "dbname": "{{DATABASE_NAME}}",
     "user": "{{DATABASE_USER}}",
     "password" : "{{DATABASE_PASSWORD}}"
+  },
+  "redis": {
+    "host": "{{REDIS_HOST}}",
+    "port": "{{{REDIS_PORT}}"
   }
 }
