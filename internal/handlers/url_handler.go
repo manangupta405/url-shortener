@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+
 	api "url-shortener/generated"
 	"url-shortener/internal/services"
 
@@ -25,6 +26,12 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request payload"})
 		return
 	}
+
+	if err := validateURL(req.OriginalUrl); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
 	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, req.Expiry)
 	if err != nil {
 		log.Print(err)
@@ -40,7 +47,8 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 
 	response := &api.ShortenedUrlDetails{
 		OriginalUrl: &req.OriginalUrl,
-		ShortUrl:    &shortUrl}
+		ShortUrl:    &shortUrl,
+	}
 
 	ctx.JSON(http.StatusCreated, response)
 }
@@ -76,6 +84,10 @@ func (h *URLHandler) UpdateShortUrl(ctx *gin.Context, shortPath string) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request payload"})
 		return
 	}
+	if err := validateURL(req.OriginalUrl); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
 
 	err := h.service.UpdateShortURL(ctx, req.OriginalUrl, ctx.Param("shortPath"), req.Expiry)
 	if err != nil {
@@ -99,6 +111,7 @@ func (h *URLHandler) GetShortUrlDetails(ctx *gin.Context, shortPath string) {
 	}
 	ctx.JSON(http.StatusOK, urlDetails)
 }
+
 func (h *URLHandler) GetShortUrlStats(ctx *gin.Context, shortPath string) {
 	urlStats, err := h.urlStatService.GetURLStatistics(ctx, shortPath)
 	if err != nil {

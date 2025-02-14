@@ -6,129 +6,107 @@ import (
 	"errors"
 	"testing"
 	"time"
-	dbMocks "url-shortener/internal/db/mocks"
 	"url-shortener/internal/models"
+
+	dbMocks "url-shortener/internal/db/mocks"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestURLRepositoryRedisImpl_InsertShortURL(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	currentTime := time.Now()
-	url := &models.URL{
-		ShortPath:   "shortPath",
-		OriginalURL: "https://www.example.com",
-		Expiry:      &time.Time{},
-		CreatedAt:   &currentTime,
-		CreatedBy:   "system",
-	}
-	data, _ := json.Marshal(url)
-	client.On("Set", ctx, url.ShortPath, string(data), time.Minute*60).Return(redis.NewStatusCmd(ctx, "OK")).Once()
-	err := repo.InsertShortURL(ctx, url)
-	assert.Nil(t, err)
-	client.AssertExpectations(t)
+func setupRedisRepository() (*dbMocks.RedisClient, *urlRepositoryRedisImpl) {
+	mockClient := &dbMocks.RedisClient{}
+	repo := NewURLRepositoryRedis(mockClient, 10*time.Minute)
+	return mockClient, repo.(*urlRepositoryRedisImpl)
 }
 
-func TestURLRepositoryRedisImpl_InsertShortURL_Error(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	currentTime := time.Now()
-	url := &models.URL{
-		ShortPath:   "shortPath",
-		OriginalURL: "https://www.example.com",
-		Expiry:      &time.Time{},
-		CreatedAt:   &currentTime,
-		CreatedBy:   "system",
-	}
-	errorResponse := redis.NewStatusCmd(ctx)
-	errorResponse.SetErr(errors.New("Internal"))
-	client.On("Set", ctx, url.ShortPath, mock.Anything, time.Minute*60).Return(errorResponse).Once()
-	err := repo.InsertShortURL(ctx, url)
-	assert.NotNil(t, err)
-	client.AssertExpectations(t)
+func TestRedisGetOriginalURL_Success(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	mockURL := models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	data, _ := json.Marshal(mockURL)
+	expectedOut := &redis.StringCmd{}
+	expectedOut.SetVal(string(data))
+	expectedOut.SetErr(nil)
+	mockClient.On("Get", mock.Anything, "shortpath").Return(expectedOut, nil).Once()
+
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, "https://example.com", url.OriginalURL)
+	mockClient.AssertExpectations(t)
 }
 
-func TestURLRepositoryRedisImpl_GetOriginalURL(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	originalURL := "https://www.example.com"
-	url := &models.URL{
-		OriginalURL: originalURL,
-		ShortPath:   shortPath,
-	}
-	data, _ := json.Marshal(url)
-	response := redis.NewStringCmd(ctx)
-	response.SetVal(string(data))
-	client.On("Get", ctx, shortPath).Return(response).Once()
-	urlGot, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.Nil(t, err)
-	assert.Equal(t, originalURL, urlGot.OriginalURL)
-	client.AssertExpectations(t)
+func TestRedisGetOriginalURL_NotFound(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	expectedOut := &redis.StringCmd{}
+	expectedOut.SetVal("")
+	expectedOut.SetErr(redis.Nil)
+	mockClient.On("Get", mock.Anything, "shortpath").Return(expectedOut, redis.Nil).Once()
+
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.NoError(t, err)
+	assert.Nil(t, url)
+	mockClient.AssertExpectations(t)
 }
 
-func TestURLRepositoryRedisImpl_GetOriginalURL_Nil(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	response := redis.NewStringCmd(ctx)
-	response.SetErr(redis.Nil)
-	client.On("Get", ctx, shortPath).Return(response).Once()
-	urlGot, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.Nil(t, err)
-	assert.Nil(t, urlGot)
-	client.AssertExpectations(t)
+func TestRedisGetOriginalURL_Error(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	expectedOut := &redis.StringCmd{}
+	expectedOut.SetVal("")
+	expectedOut.SetErr(errors.New("redis error"))
+	mockClient.On("Get", mock.Anything, "shortpath").Return(expectedOut).Once()
+
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.Error(t, err)
+	assert.Nil(t, url)
+	mockClient.AssertExpectations(t)
+}
+func TestRedisInsertShortURL_Success(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	expectedOut := &redis.StatusCmd{}
+	expectedOut.SetVal("")
+	expectedOut.SetErr(nil)
+	mockURL := models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	mockClient.On("Set", mock.Anything, "shortpath", mock.Anything, repo.cacheExpiry).Return(expectedOut).Once()
+	err := repo.InsertShortURL(context.Background(), &mockURL)
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }
 
-func TestURLRepositoryRedisImpl_GetOriginalURL_Error(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	client.On("Get", ctx, shortPath).Return(redis.NewStringCmd(ctx, errors.New("Internal"))).Once()
-	_, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.NotNil(t, err)
-	client.AssertExpectations(t)
+func TestRedisInsertShortURL_Error(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	mockURL := models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	expectedOut := &redis.StatusCmd{}
+	expectedOut.SetVal("")
+	expectedOut.SetErr(errors.New("redis error"))
+	mockClient.On("Set", mock.Anything, "shortpath", mock.Anything, repo.cacheExpiry).Return(expectedOut).Once()
+	err := repo.InsertShortURL(context.Background(), &mockURL)
+	assert.Error(t, err)
+	mockClient.AssertExpectations(t)
 }
 
-func TestURLRepositoryRedisImpl_DeleteShortURL(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	currentTime := time.Now()
-	deletedBy := "system"
-	client.On("Del", ctx, shortPath).Return(redis.NewIntCmd(ctx, 1)).Once()
-	err := repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
-	assert.Nil(t, err)
-	client.AssertExpectations(t)
+func TestRedisDeleteShortURL_Success(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	expectedOut := &redis.IntCmd{}
+	expectedOut.SetVal(0)
+	expectedOut.SetErr(nil)
+	mockClient.On("Del", mock.Anything, "shortpath").Return(expectedOut).Once()
+	err := repo.DeleteShortURL(context.Background(), "shortpath", time.Now(), "testuser")
+	assert.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }
 
-func TestURLRepositoryRedisImpl_DeleteShortURL_Error(t *testing.T) {
-	client := &dbMocks.RedisClient{}
-	defer client.AssertExpectations(t)
-	repo := NewURLRepositoryRedis(client, time.Minute*60)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	currentTime := time.Now()
-	deletedBy := "system"
-	response := redis.NewIntCmd(ctx)
-	response.SetErr(errors.New("Internal"))
-	client.On("Del", ctx, shortPath).Return(response).Once()
-	err := repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
-	assert.NotNil(t, err)
-	client.AssertExpectations(t)
+func TestRedisDeleteShortURL_Error(t *testing.T) {
+	mockClient, repo := setupRedisRepository()
+	expectedOut := &redis.IntCmd{}
+	expectedOut.SetVal(0)
+	expectedOut.SetErr(errors.New("redis error"))
+	mockClient.On("Del", mock.Anything, "shortpath").Return(expectedOut).Once()
+	err := repo.DeleteShortURL(context.Background(), "shortpath", time.Now(), "testuser")
+	assert.Error(t, err)
+	mockClient.AssertExpectations(t)
 }

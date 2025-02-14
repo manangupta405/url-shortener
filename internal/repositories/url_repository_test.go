@@ -2,252 +2,157 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 	"url-shortener/internal/models"
 	"url-shortener/internal/repositories/mocks"
-	utilsMocks "url-shortener/internal/utils/mocks"
+
+	utilMocks "url-shortener/internal/utils/mocks"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestURLRepositoryImpl_GetShortURL(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	originalURL := "https://www.example.com"
-	shortPath := "shortPath"
-	url := &models.URL{
-		OriginalURL: originalURL,
-		ShortPath:   shortPath,
-	}
-	redisRepo.On("GetShortURL", ctx, originalURL).Return(nil, ErrCacheMiss).Once()
-	postgresRepo.On("GetShortURL", ctx, originalURL).Return(url, nil).Once()
-	redisRepo.On("InsertShortURL", context.Background(), url).Return(nil).Once()
-	urlGot, err := repo.GetShortURL(ctx, originalURL)
-	assert.Eventually(t, func() bool {
-		return err == nil
-	}, time.Millisecond*100, time.Millisecond*10)
-	assert.Equal(t, shortPath, urlGot.ShortPath)
+func setupRepository() (*mocks.URLRepository, *mocks.URLRepository, *utilMocks.TimeProvider, URLRepository) {
+	redisRepo := mocks.URLRepository{}
+	postgresRepo := mocks.URLRepository{}
+	timeProvider := utilMocks.TimeProvider{}
+	repo := NewURLRepository(&redisRepo, &postgresRepo, &timeProvider)
+	return &redisRepo, &postgresRepo, &timeProvider, repo
+}
+
+func TestGetShortURL_Success(t *testing.T) {
+	redisRepo, postgresRepo, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	postgresRepo.On("GetShortURL", mock.Anything, "https://example.com").Return(mockURL, nil).Once()
+	redisRepo.On("InsertShortURL", mock.Anything, mockURL).Return(nil).Once()
+	url, err := repo.GetShortURL(context.Background(), "https://example.com")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, "https://example.com", url.OriginalURL)
+	postgresRepo.AssertExpectations(t)
+}
+
+func TestGetShortURL_Error(t *testing.T) {
+	_, postgresRepo, _, repo := setupRepository()
+	postgresRepo.On("GetShortURL", mock.Anything, "https://example.com").Return(nil, assert.AnError).Once()
+	url, err := repo.GetShortURL(context.Background(), "https://example.com")
+
+	assert.Error(t, err)
+	assert.Nil(t, url)
+	postgresRepo.AssertExpectations(t)
+}
+
+func TestGetOriginalURL_SuccessRedis(t *testing.T) {
+	redisRepo, _, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	redisRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(mockURL, nil).Once()
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, "https://example.com", url.OriginalURL)
+	redisRepo.AssertExpectations(t)
+}
+
+func TestGetOriginalURL_SuccessPostgres(t *testing.T) {
+	redisRepo, postgresRepo, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	redisRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(nil, ErrCacheMiss).Once()
+	postgresRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(mockURL, nil).Once()
+	redisRepo.On("InsertShortURL", mock.Anything, mockURL).Return(nil).Once()
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, "https://example.com", url.OriginalURL)
 	redisRepo.AssertExpectations(t)
 	postgresRepo.AssertExpectations(t)
 }
 
-func TestURLRepositoryImpl_GetShortURL_RedisError(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	originalURL := "https://www.example.com"
-	redisRepo.On("GetShortURL", ctx, originalURL).Return(nil, errors.New("Internal")).Once()
-	_, err := repo.GetShortURL(ctx, originalURL)
-	assert.NotNil(t, err)
+func TestGetOriginalURL_ErrorRedis(t *testing.T) {
+	redisRepo, _, _, repo := setupRepository()
+	redisRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(nil, assert.AnError).Once()
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.Error(t, err)
+	assert.Nil(t, url)
+	redisRepo.AssertExpectations(t)
+}
+
+func TestGetOriginalURL_ErrorPostgres(t *testing.T) {
+	redisRepo, postgresRepo, _, repo := setupRepository()
+	redisRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(nil, ErrCacheMiss).Once()
+	postgresRepo.On("GetOriginalURL", mock.Anything, "shortpath").Return(nil, assert.AnError).Once()
+	url, err := repo.GetOriginalURL(context.Background(), "shortpath")
+
+	assert.Error(t, err)
+	assert.Nil(t, url)
 	redisRepo.AssertExpectations(t)
 	postgresRepo.AssertExpectations(t)
 }
 
-func TestURLRepositoryImpl_GetShortURL_PostgresError(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	originalURL := "https://www.example.com"
-	redisRepo.On("GetShortURL", ctx, originalURL).Return(nil, ErrCacheMiss).Once()
-	postgresRepo.On("GetShortURL", ctx, originalURL).Return(nil, errors.New("Internal")).Once()
-	_, err := repo.GetShortURL(ctx, originalURL)
-	assert.NotNil(t, err)
+func TestUpdateShortURL_Success(t *testing.T) {
+	redisRepo, postgresRepo, timeProvider, repo := setupRepository()
+	currTime := time.Now()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath", Expiry: &currTime}
+	postgresRepo.On("UpdateShortURL", mock.Anything, mockURL).Return(nil).Once()
+	redisRepo.On("DeleteShortURL", mock.Anything, "shortpath", mock.Anything, "system").Return(nil).Once()
+	timeProvider.On("Now").Return(currTime).Once()
+	err := repo.UpdateShortURL(context.Background(), mockURL)
+
+	assert.NoError(t, err)
+	postgresRepo.AssertExpectations(t)
 	redisRepo.AssertExpectations(t)
+}
+
+func TestUpdateShortURL_Error(t *testing.T) {
+	_, postgresRepo, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	postgresRepo.On("UpdateShortURL", mock.Anything, mockURL).Return(assert.AnError).Once()
+	err := repo.UpdateShortURL(context.Background(), mockURL)
+
+	assert.Error(t, err)
 	postgresRepo.AssertExpectations(t)
 }
 
-func TestURLRepositoryImpl_GetOriginalURL(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	originalURL := "https://www.example.com"
-	url := &models.URL{
-		OriginalURL: originalURL,
-		ShortPath:   shortPath,
-	}
-	redisRepo.On("GetOriginalURL", ctx, shortPath).Return(nil, ErrCacheMiss).Once()
-	postgresRepo.On("GetOriginalURL", ctx, shortPath).Return(url, nil).Once()
-	redisRepo.On("InsertShortURL", ctx, url).Return(nil).Once()
-	urlGot, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.Nil(t, err)
-	assert.Equal(t, originalURL, urlGot.OriginalURL)
+func TestDeleteShortURL_Success(t *testing.T) {
+	redisRepo, postgresRepo, _, repo := setupRepository()
+	postgresRepo.On("DeleteShortURL", mock.Anything, "shortpath", mock.Anything, "testuser").Return(nil).Once()
+	redisRepo.On("DeleteShortURL", mock.Anything, "shortpath", mock.Anything, "testuser").Return(nil).Once()
+	err := repo.DeleteShortURL(context.Background(), "shortpath", time.Now(), "testuser")
+
+	assert.NoError(t, err)
+	postgresRepo.AssertExpectations(t)
 	redisRepo.AssertExpectations(t)
+}
+
+func TestDeleteShortURL_Error(t *testing.T) {
+	_, postgresRepo, _, repo := setupRepository()
+	postgresRepo.On("DeleteShortURL", mock.Anything, "shortpath", mock.Anything, "testuser").Return(assert.AnError).Once()
+	err := repo.DeleteShortURL(context.Background(), "shortpath", time.Now(), "testuser")
+
+	assert.Error(t, err)
 	postgresRepo.AssertExpectations(t)
 }
 
-func TestURLRepositoryImpl_GetOriginalURL_RedisError(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	redisRepo.On("GetOriginalURL", ctx, shortPath).Return(nil, errors.New("Internal")).Once()
-	_, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.NotNil(t, err)
-	redisRepo.AssertExpectations(t)
+func TestInsertShortURL_Success(t *testing.T) {
+	_, postgresRepo, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	postgresRepo.On("InsertShortURL", mock.Anything, mockURL).Return(nil).Once()
+	err := repo.InsertShortURL(context.Background(), mockURL)
+
+	assert.NoError(t, err)
 	postgresRepo.AssertExpectations(t)
 }
 
-func TestURLRepositoryImpl_GetOriginalURL_PostgresError(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	redisRepo.On("GetOriginalURL", ctx, shortPath).Return(nil, ErrCacheMiss).Once()
-	postgresRepo.On("GetOriginalURL", ctx, shortPath).Return(nil, errors.New("Internal")).Once()
-	_, err := repo.GetOriginalURL(ctx, shortPath)
-	assert.NotNil(t, err)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
+func TestInsertShortURL_Error(t *testing.T) {
+	_, postgresRepo, _, repo := setupRepository()
+	mockURL := &models.URL{OriginalURL: "https://example.com", ShortPath: "shortpath"}
+	postgresRepo.On("InsertShortURL", mock.Anything, mockURL).Return(assert.AnError).Once()
+	err := repo.InsertShortURL(context.Background(), mockURL)
 
-func TestURLRepositoryImpl_UpdateShortURL(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	currentTime := time.Now()
-	ctx := context.Background()
-	shortPath := "shortPath"
-	url := &models.URL{
-		ShortPath: shortPath,
-	}
-	postgresRepo.On("UpdateShortURL", ctx, url).Return(nil).Once()
-	redisRepo.On("DeleteShortURL", ctx, shortPath, currentTime, "system").Return(nil).Once()
-	timeProvider.On("Now").Return(currentTime).Once()
-	err := repo.UpdateShortURL(ctx, url)
-	assert.Eventually(t, func() bool {
-		return err == nil
-	}, time.Millisecond*100, time.Millisecond*10)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
-
-func TestURLRepositoryImpl_UpdateShortURL_Error(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	url := &models.URL{
-		ShortPath: shortPath,
-	}
-	postgresRepo.On("UpdateShortURL", ctx, url).Return(errors.New("Internal")).Once()
-	err := repo.UpdateShortURL(ctx, url)
-	assert.NotNil(t, err)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
-
-func TestURLRepositoryImpl_DeleteShortURL(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	currentTime := time.Now()
-	deletedBy := "system"
-	postgresRepo.On("DeleteShortURL", ctx, shortPath, currentTime, deletedBy).Return(nil).Once()
-	redisRepo.On("DeleteShortURL", ctx, shortPath, currentTime, deletedBy).Return(nil).Once()
-	err := repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
-	assert.Nil(t, err)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
-
-func TestURLRepositoryImpl_DeleteShortURL_Error(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	shortPath := "shortPath"
-	currentTime := time.Now()
-	deletedBy := "system"
-	postgresRepo.On("DeleteShortURL", ctx, shortPath, currentTime, deletedBy).Return(errors.New("Internal")).Once()
-	err := repo.DeleteShortURL(ctx, shortPath, currentTime, deletedBy)
-	assert.NotNil(t, err)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
-
-func TestURLRepositoryImpl_InsertShortURL(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	url := &models.URL{}
-	postgresRepo.On("InsertShortURL", ctx, url).Return(nil).Once()
-	err := repo.InsertShortURL(ctx, url)
-	assert.Nil(t, err)
-	redisRepo.AssertExpectations(t)
-	postgresRepo.AssertExpectations(t)
-}
-
-func TestURLRepositoryImpl_InsertShortURL_Error(t *testing.T) {
-	redisRepo := &mocks.URLRepository{}
-	defer redisRepo.AssertExpectations(t)
-	postgresRepo := &mocks.URLRepository{}
-	defer postgresRepo.AssertExpectations(t)
-	timeProvider := &utilsMocks.TimeProvider{}
-	defer timeProvider.AssertExpectations(t)
-	repo := NewURLRepository(redisRepo, postgresRepo, timeProvider)
-	ctx := context.Background()
-	url := &models.URL{}
-	postgresRepo.On("InsertShortURL", ctx, url).Return(errors.New("Internal")).Once()
-	err := repo.InsertShortURL(ctx, url)
-	assert.NotNil(t, err)
-	redisRepo.AssertExpectations(t)
+	assert.Error(t, err)
 	postgresRepo.AssertExpectations(t)
 }

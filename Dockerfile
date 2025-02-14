@@ -1,17 +1,14 @@
 FROM golang:1.23-alpine3.19 AS build
 
-# Define current working directory
 WORKDIR /url-shortener
 
-# Download modules to local cache so we can skip re-
-# downloading on consecutive docker build commands
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 
-# Add sources
 COPY . .
-
+RUN go test -coverprofile=coverage.out ./... && \
+    go tool cover -func=coverage.out
 RUN go build -o ./cmd/server/url-shortener ./cmd/server
 
 

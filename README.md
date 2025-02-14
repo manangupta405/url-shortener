@@ -1,8 +1,31 @@
 # URL Shortener
 A simple REST API to shorten urls. 
 
+# Features
+
+## Core Functionality
+
+* **Fast URL Shortening:** Quickly create short, shareable links.
+* **Reliable Redirection:** Seamlessly redirects to the original URL.
+* **Click Tracking:** Monitor link performance with detailed access statistics.
+* **Easy API Integration:**  Integrate URL shortening into your apps using a simple REST API.
+
+## Monitoring & Logging
+
+### **Real-time Insights:**  Monitor key metrics and logs with Grafana.
+* **Redirect Max Percentile Latency:** Tracks 99th, 90th, and 75th percentile latency for redirects.  
+* **Maximum Percentile Latency:** Displays highest recorded latencies over time.  
+* **Error Rate Over Time:** Tracks occurrences of `4xx` errors.  
+* **Request Count (Gauge):** Shows count of requests segmented by status codes (`200`, `201`, `302`, `404`).  
+* **Top 10 CRUD Calls:** Lists the most frequently accessed API endpoints.  
+* **Top 10 Consumers (Client IPs):** Shows top IPs making the most requests.  
+* **Top 10 Short URLs:** Tracks the most accessed short URLs.  
+![Grafana Dashboard](out/ui/grafana.png)
+
+
 # Architechture
 ![URL Shortener Architecture](out/architechture/url-shortener/url-shortener.png)
+
 
 ## Decisions and Tradeoffs
 * **NanoID** allowes low [probability of collision](https://en.wikipedia.org/wiki/Birthday_problem), allowing me to generate unique short URLs without checking the database. Using a [12 character length NanoID](https://alex7kom.github.io/nano-nanoid-cc/?alphabet=_-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz&size=12&speed=25&speedUnit=second)
@@ -32,21 +55,27 @@ A simple REST API to shorten urls.
 2. Make sure to replace **DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD** accordingly. **Keep Database credentials consistent in .env and config.json**
 3. Run using docker compose
 ```
-docker compose build
-docker compose up -d
+docker compose build docker compose up -d
 ```
-
 # Development Steps
 1. Initialize Go Project
 ```
-go mod init url-shortener
-go mod tidy
+go mod init url-shortener go mod tidy
+
 ```
 2. Generate Server Interface From oapi-codegen
 ```
-oapi-codegen --config=api/server.cfg.yaml api/openapi.yaml
-oapi-codegen --config=api/types.cfg.yaml api/openapi.yaml
+oapi-codegen --config=api/server.cfg.yaml api/openapi.yaml oapi-codegen --config=api/types.cfg.yaml api/openapi.yaml
 ```
 3. Implement Initial
 4. Add Docker & Postgresql
 5. Complete Implementation
+
+# Learnings
+* Developed skills in using Docker Compose for managing the development environment.
+* Explored Grafana for monitoring and visualizing key metrics.
+* Gained insights into architectural considerations for handling high throughput and availability.
+* Learned about trade-offs between different approaches for URL shortening (e.g., counter approach vs. NanoID).
+* Enhanced understanding of CAP theorem and its implications for system design.
+* Gained experience in provisioning and persistent storage of Grafana dashboards.
+* Learned about PlantUML for generating diagrams.
