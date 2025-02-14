@@ -19,7 +19,7 @@ func NewURLRepositoryPostgresql(db *sql.DB) URLRepository {
 func (r *urlRepositoryPostgresqlImpl) GetShortURL(ctx context.Context, originalURL string) (*models.URL, error) {
 	row := r.db.QueryRowContext(ctx, PG_GET_BY_ORIGINAL_URL, originalURL)
 	url := &models.URL{}
-	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy, &url.DeletedAt, &url.DeletedBy)
+	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -33,7 +33,7 @@ func (r *urlRepositoryPostgresqlImpl) GetShortURL(ctx context.Context, originalU
 func (r *urlRepositoryPostgresqlImpl) GetOriginalURL(ctx context.Context, shortPath string) (*models.URL, error) {
 	row := r.db.QueryRowContext(ctx, PG_GET_BY_SHORT_URL, shortPath)
 	url := &models.URL{}
-	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy, &url.DeletedAt, &url.DeletedBy)
+	err := row.Scan(&url.ShortPath, &url.OriginalURL, &url.Expiry, &url.CreatedAt, &url.CreatedBy, &url.ModifiedAt, &url.ModifiedBy)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -50,9 +50,38 @@ func (r *urlRepositoryPostgresqlImpl) UpdateShortURL(ctx context.Context, url *m
 }
 
 // DeleteShortURL implements URLRepository.
-func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time) error {
-	_, err := r.db.ExecContext(ctx, PG_SOFT_DELETE_SHORT_URL, currentTime, "system", shortPath)
-	return err
+func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // Rollback on error
+
+	// Delete from urls and retrieve the deleted row using RETURNING
+	row := tx.QueryRowContext(ctx, PG_GET_BY_SHORT_URL, shortPath)
+
+	urlArchive := &models.URLArchive{}
+	err = row.Scan(&urlArchive.ShortPath, &urlArchive.OriginalURL, &urlArchive.Expiry, &urlArchive.CreatedAt, &urlArchive.CreatedBy, &urlArchive.ModifiedAt, &urlArchive.ModifiedBy)
+	if err != nil {
+		return err // Handle the error appropriately
+	}
+
+	urlArchive.DeletedAt = &currentTime
+	urlArchive.DeletedBy = &deletedBy
+
+	// Insert into urls_archive
+	_, err = tx.ExecContext(ctx, PG_INSERT_URL_ARCHIVE, urlArchive.ShortPath, urlArchive.OriginalURL, urlArchive.Expiry, urlArchive.CreatedAt, urlArchive.CreatedBy, urlArchive.ModifiedAt, urlArchive.ModifiedBy, urlArchive.DeletedAt, urlArchive.DeletedBy)
+	if err != nil {
+		return err
+	}
+
+	// Insert into urls_archive
+	_, err = tx.ExecContext(ctx, PG_DELETE_SHORT_URL, urlArchive.ShortPath)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // InsertShortURL implements URLRepository.

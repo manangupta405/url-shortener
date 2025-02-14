@@ -11,6 +11,6 @@ type URLRepository interface {
 	GetShortURL(ctx context.Context, originalURL string) (*models.URL, error)
 	GetOriginalURL(ctx context.Context, shortPath string) (*models.URL, error)
 	UpdateShortURL(ctx context.Context, url *models.URL) error
-	DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time) error
+	DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error
 	InsertShortURL(ctx context.Context, url *models.URL) error
 }

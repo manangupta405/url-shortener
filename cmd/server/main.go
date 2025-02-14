@@ -35,6 +35,9 @@ func main() {
 	router := gin.Default()
 	router.POST("/urls", urlHandler.CreateShortUrl)
 	router.GET("/:shortPath", urlHandler.RedirectToLongURL)
+	router.DELETE("/urls/:shortPath", urlHandler.DeleteShortURL)
+	router.PUT("/urls/:shortPath", urlHandler.UpdateShortURL)
+	router.GET("/urls/:shortPath", urlHandler.GetURLDetails)
 
 	log.Println("Starting server on :" + defaultConfig.Server.Port)
 	router.Run(":" + defaultConfig.Server.Port)

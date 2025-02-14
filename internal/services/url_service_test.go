@@ -130,3 +130,179 @@ func TestURLServiceImpl_CreateShortURL_RepoError(t *testing.T) {
 	idGenerator.AssertExpectations(t)
 	timeProvider.AssertExpectations(t)
 }
+
+func TestURLServiceImpl_GetLongURL(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	originalURL := "https://www.example.com"
+	url := &models.URL{
+		OriginalURL: originalURL,
+		ShortPath:   shortPath,
+	}
+	repo.On("GetOriginalURL", ctx, shortPath).Return(url, nil).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	longURL, err := service.GetLongURL(ctx, shortPath)
+	assert.Nil(t, err)
+	assert.Equal(t, originalURL, longURL)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_GetLongURL_RepoError(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	repo.On("GetOriginalURL", ctx, shortPath).Return(nil, errors.New("Internal")).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	_, err := service.GetLongURL(ctx, shortPath)
+	assert.NotNil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_DeleteURL(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	currentTime := time.Now()
+	deletedBy := "system"
+	repo.On("DeleteShortURL", ctx, shortPath, currentTime, deletedBy).Return(nil).Once()
+	timeProvider.On("Now").Return(currentTime).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	err := service.DeleteURL(ctx, shortPath)
+	assert.Nil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_DeleteURL_RepoError(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	currentTime := time.Now()
+	deletedBy := "system"
+	repo.On("DeleteShortURL", ctx, shortPath, currentTime, deletedBy).Return(errors.New("Internal")).Once()
+	timeProvider.On("Now").Return(currentTime).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	err := service.DeleteURL(ctx, shortPath)
+	assert.NotNil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_UpdateShortURL(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	originalURL := "https://www.example.com"
+	shortPath := "shortPath"
+	expiry := time.Now().Add(time.Minute * 60)
+	urlUpdate := &models.URL{
+		OriginalURL: originalURL,
+		ShortPath:   shortPath,
+		Expiry:      &expiry,
+	}
+	repo.On("UpdateShortURL", ctx, urlUpdate).Return(nil).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	err := service.UpdateShortURL(ctx, originalURL, shortPath, &expiry)
+	assert.Nil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_UpdateShortURL_RepoError(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	originalURL := "https://www.example.com"
+	shortPath := "shortPath"
+	expiry := time.Now().Add(time.Minute * 60)
+	urlUpdate := &models.URL{
+		OriginalURL: originalURL,
+		ShortPath:   shortPath,
+		Expiry:      &expiry,
+	}
+	repo.On("UpdateShortURL", ctx, urlUpdate).Return(errors.New("Internal")).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	err := service.UpdateShortURL(ctx, originalURL, shortPath, &expiry)
+	assert.NotNil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_GetURLDetails(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	originalURL := "https://www.example.com"
+	url := &models.URL{
+		OriginalURL: originalURL,
+		ShortPath:   shortPath,
+	}
+	repo.On("GetOriginalURL", ctx, shortPath).Return(url, nil).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	urlDetails, err := service.GetURLDetails(ctx, shortPath)
+	assert.Nil(t, err)
+	assert.Equal(t, originalURL, urlDetails.OriginalURL)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}
+
+func TestURLServiceImpl_GetURLDetails_RepoError(t *testing.T) {
+	repo := &repoMocks.URLRepository{}
+	defer repo.AssertExpectations(t)
+	idGenerator := &utilsMocks.NanoIDGenerator{}
+	defer idGenerator.AssertExpectations(t)
+	timeProvider := &utilsMocks.TimeProvider{}
+	defer timeProvider.AssertExpectations(t)
+	ctx := context.Background()
+	shortPath := "shortPath"
+	repo.On("GetOriginalURL", ctx, shortPath).Return(nil, errors.New("Internal")).Once()
+	service := NewURLService(repo, idGenerator, timeProvider)
+	_, err := service.GetURLDetails(ctx, shortPath)
+	assert.NotNil(t, err)
+	repo.AssertExpectations(t)
+	idGenerator.AssertExpectations(t)
+	timeProvider.AssertExpectations(t)
+}

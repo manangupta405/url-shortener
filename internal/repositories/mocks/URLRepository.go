@@ -16,17 +16,17 @@ type URLRepository struct {
 	mock.Mock
 }
 
-// DeleteShortURL provides a mock function with given fields: ctx, shortPath, currentTime
-func (_m *URLRepository) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time) error {
-	ret := _m.Called(ctx, shortPath, currentTime)
+// DeleteShortURL provides a mock function with given fields: ctx, shortPath, currentTime, deletedBy
+func (_m *URLRepository) DeleteShortURL(ctx context.Context, shortPath string, currentTime time.Time, deletedBy string) error {
+	ret := _m.Called(ctx, shortPath, currentTime, deletedBy)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteShortURL")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) error); ok {
-		r0 = rf(ctx, shortPath, currentTime)
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time, string) error); ok {
+		r0 = rf(ctx, shortPath, currentTime, deletedBy)
 	} else {
 		r0 = ret.Error(0)
 	}
