@@ -14,11 +14,13 @@ A simple REST API to shorten urls.
 * **Docker** is used for a consistent local development setup.
 * **Availability and Partition Tolerance (AP)** is prioritized based on CAP theorem.
 * **Using 302 redirect** for keeping track of statistics. 301 would result in caching on client side and thus inconsistent statistics.
+* **CRON** job is used to clean up expired urls. It runs every 5 minutes.
 
 ## Future Scope
 * When deployed in scale sharding the database can be considered. 
 * Rate limiting should be considered to prevent DDoS attacks. 
 * In case expected throughput is more than 100RPS, **Cassandra** can be used.
+* For statistics, currently I am using the same PostgreSQL database, but it can become a bottleneck at high usage. 
 
 ## Alternatives
 * Counter Approach - Adding a counter to maintain uniqueness. Compromises security due to predictability.

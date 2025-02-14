@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+	models "url-shortener/internal/models"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -41,6 +42,100 @@ func (_m *URLService) CreateShortURL(ctx context.Context, originalURL string, ex
 	}
 
 	return r0, r1
+}
+
+// DeleteURL provides a mock function with given fields: ctx, shortPath
+func (_m *URLService) DeleteURL(ctx context.Context, shortPath string) error {
+	ret := _m.Called(ctx, shortPath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteURL")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, shortPath)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetLongURL provides a mock function with given fields: ctx, shortPath
+func (_m *URLService) GetLongURL(ctx context.Context, shortPath string) (string, error) {
+	ret := _m.Called(ctx, shortPath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLongURL")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return rf(ctx, shortPath)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, shortPath)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, shortPath)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetURLDetails provides a mock function with given fields: ctx, shortPath
+func (_m *URLService) GetURLDetails(ctx context.Context, shortPath string) (*models.URL, error) {
+	ret := _m.Called(ctx, shortPath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetURLDetails")
+	}
+
+	var r0 *models.URL
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*models.URL, error)); ok {
+		return rf(ctx, shortPath)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *models.URL); ok {
+		r0 = rf(ctx, shortPath)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.URL)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, shortPath)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateShortURL provides a mock function with given fields: ctx, originalUrl, shortUrl, expiry
+func (_m *URLService) UpdateShortURL(ctx context.Context, originalUrl string, shortUrl string, expiry *time.Time) error {
+	ret := _m.Called(ctx, originalUrl, shortUrl, expiry)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateShortURL")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *time.Time) error); ok {
+		r0 = rf(ctx, originalUrl, shortUrl, expiry)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // NewURLService creates a new instance of URLService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -20,6 +20,18 @@ type ShortenedUrlDetails struct {
 	ShortUrl    *string    `json:"shortUrl,omitempty"`
 }
 
+// URLStatistics defines model for URLStatistics.
+type URLStatistics struct {
+	// AllTime Total number of accesses
+	AllTime *int `json:"allTime,omitempty"`
+
+	// Last24Hours Number of accesses in the last 24 hours
+	Last24Hours *int `json:"last24Hours,omitempty"`
+
+	// PastWeek Number of accesses in the past week
+	PastWeek *int `json:"pastWeek,omitempty"`
+}
+
 // CreateShortUrlJSONBody defines parameters for CreateShortUrl.
 type CreateShortUrlJSONBody struct {
 	Expiry      *time.Time `json:"expiry,omitempty"`

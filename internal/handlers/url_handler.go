@@ -9,11 +9,13 @@ import (
 )
 
 type URLHandler struct {
-	service services.URLService
+	service        services.URLService
+	urlStatService services.URLStatsService
+	api.ServerInterface
 }
 
-func NewURLHandler(service services.URLService) *URLHandler {
-	return &URLHandler{service: service}
+func NewURLHandler(service services.URLService, urlStatService services.URLStatsService) *URLHandler {
+	return &URLHandler{service: service, urlStatService: urlStatService}
 }
 
 func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
@@ -42,8 +44,7 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, response)
 }
 
-func (h *URLHandler) RedirectToLongURL(ctx *gin.Context) {
-	shortPath := ctx.Param("shortPath")
+func (h *URLHandler) RedirectToOriginalUrl(ctx *gin.Context, shortPath string) {
 	longURL, err := h.service.GetLongURL(ctx, shortPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to redirect"})
@@ -58,8 +59,7 @@ func (h *URLHandler) RedirectToLongURL(ctx *gin.Context) {
 }
 
 // DeleteShortURL implements URLService
-func (h *URLHandler) DeleteShortURL(ctx *gin.Context) {
-	shortPath := ctx.Param("shortPath")
+func (h *URLHandler) DeleteShortUrl(ctx *gin.Context, shortPath string) {
 	err := h.service.DeleteURL(ctx, shortPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete"})
@@ -69,7 +69,7 @@ func (h *URLHandler) DeleteShortURL(ctx *gin.Context) {
 }
 
 // UpdateShortURL implements URLService
-func (h *URLHandler) UpdateShortURL(ctx *gin.Context) {
+func (h *URLHandler) UpdateShortUrl(ctx *gin.Context, shortPath string) {
 	var req api.UpdateShortUrlJSONBody
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request payload"})
@@ -86,8 +86,7 @@ func (h *URLHandler) UpdateShortURL(ctx *gin.Context) {
 }
 
 // GetURLDetails implements URLService
-func (h *URLHandler) GetURLDetails(ctx *gin.Context) {
-	shortPath := ctx.Param("shortPath")
+func (h *URLHandler) GetShortUrlDetails(ctx *gin.Context, shortPath string) {
 	urlDetails, err := h.service.GetURLDetails(ctx, shortPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get URL details"})
@@ -98,4 +97,16 @@ func (h *URLHandler) GetURLDetails(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, urlDetails)
+}
+func (h *URLHandler) GetShortUrlStats(ctx *gin.Context, shortPath string) {
+	urlStats, err := h.urlStatService.GetURLStatistics(ctx, shortPath)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get URL statistics"})
+		return
+	}
+	if urlStats == nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	ctx.JSON(http.StatusOK, urlStats)
 }

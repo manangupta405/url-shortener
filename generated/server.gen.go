@@ -32,6 +32,9 @@ type ServerInterface interface {
 	// Update a shortened URL
 	// (PUT /urls/{short-path})
 	UpdateShortUrl(c *gin.Context, shortPath string)
+	// Get access statistics for a shortened URL
+	// (GET /urls/{short-path}/stats)
+	GetShortUrlStats(c *gin.Context, shortPath string)
 	// Redirect to the original URL
 	// (GET /{short-path})
 	RedirectToOriginalUrl(c *gin.Context, shortPath string)
@@ -131,6 +134,30 @@ func (siw *ServerInterfaceWrapper) UpdateShortUrl(c *gin.Context) {
 	siw.Handler.UpdateShortUrl(c, shortPath)
 }
 
+// GetShortUrlStats operation middleware
+func (siw *ServerInterfaceWrapper) GetShortUrlStats(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "short-path" -------------
+	var shortPath string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "short-path", c.Param("short-path"), &shortPath, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter short-path: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetShortUrlStats(c, shortPath)
+}
+
 // RedirectToOriginalUrl operation middleware
 func (siw *ServerInterfaceWrapper) RedirectToOriginalUrl(c *gin.Context) {
 
@@ -186,26 +213,30 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/urls/:short-path", wrapper.DeleteShortUrl)
 	router.GET(options.BaseURL+"/urls/:short-path", wrapper.GetShortUrlDetails)
 	router.PUT(options.BaseURL+"/urls/:short-path", wrapper.UpdateShortUrl)
+	router.GET(options.BaseURL+"/urls/:short-path/stats", wrapper.GetShortUrlStats)
 	router.GET(options.BaseURL+"/:short-path", wrapper.RedirectToOriginalUrl)
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"AP//sQScXaUXAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

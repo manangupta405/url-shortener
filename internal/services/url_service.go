@@ -19,12 +19,13 @@ type URLService interface {
 
 type urlServiceImpl struct {
 	repo         repositories.URLRepository
+	statRepo     repositories.URLStatisticsRepository
 	idGenerator  utils.NanoIDGenerator
 	timeProvider utils.TimeProvider
 }
 
-func NewURLService(repo repositories.URLRepository, idGenerator utils.NanoIDGenerator, timeProvider utils.TimeProvider) URLService {
-	return &urlServiceImpl{repo: repo, idGenerator: idGenerator, timeProvider: timeProvider}
+func NewURLService(repo repositories.URLRepository, statRepo repositories.URLStatisticsRepository, idGenerator utils.NanoIDGenerator, timeProvider utils.TimeProvider) URLService {
+	return &urlServiceImpl{repo: repo, statRepo: statRepo, idGenerator: idGenerator, timeProvider: timeProvider}
 }
 
 // CreateShortURL implements URLService.
@@ -67,6 +68,14 @@ func (s *urlServiceImpl) GetLongURL(ctx context.Context, shortPath string) (stri
 	if url == nil {
 		return "", nil
 	}
+	go func() {
+		err := s.statRepo.InsertAccessLog(context.Background(), shortPath, s.timeProvider.Now())
+		if err != nil {
+			// Log the error.  Consider adding more robust error handling here.
+			println("Error inserting access log:", err)
+		}
+	}()
+
 	return url.OriginalURL, nil
 }
 

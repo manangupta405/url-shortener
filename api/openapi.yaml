@@ -226,6 +226,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /urls/{short-path}/stats:
+    get:
+      summary: "Get access statistics for a shortened URL"
+      operationId: "getShortUrlStats"
+      tags:
+        - "Statistics"
+      parameters:
+        - name: "short-path"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Access statistics retrieved"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/URLStatistics"
+        '404':
+          description: "Shortened URL not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '429':
+          description: "Too many requests - Rate limit exceeded"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     ShortenedUrlDetails:
@@ -240,6 +277,18 @@ components:
         expiry:
           type: "string"
           format: "date-time"
+    URLStatistics:
+      type: "object"
+      properties:
+        last24Hours:
+          type: "integer"
+          description: "Number of accesses in the last 24 hours"
+        pastWeek:
+          type: "integer"
+          description: "Number of accesses in the past week"
+        allTime:
+          type: "integer"
+          description: "Total number of accesses"
     ErrorResponse:
       type: "object"
       properties:
