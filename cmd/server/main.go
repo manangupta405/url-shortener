@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+
 	gin.SetMode(gin.ReleaseMode)
 	defaultConfig, err := config.LoadConfig("./config.json")
 	if err != nil {
@@ -40,10 +41,11 @@ func main() {
 	urlService := services.NewURLService(urlRepo, urlStatPgRepo, idGenerator, timeProvider)
 	urlStatService := services.NewURLStatsService(urlStatPgRepo)
 
-	// Implement the generated ServerInterface:
 	serverInterface := handlers.NewURLHandler(urlService, urlStatService)
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.LoggerWithFormatter(utils.CustomLogFormatter))
+
 	api.RegisterHandlersWithOptions(router, serverInterface, api.GinServerOptions{
 		BaseURL: "", // Or set a base path if needed
 		ErrorHandler: func(c *gin.Context, err error, statusCode int) {
@@ -51,6 +53,6 @@ func main() {
 		},
 	})
 
-	log.Println("Starting server on :" + defaultConfig.Server.Port)
+	log.Print("Starting server on :" + defaultConfig.Server.Port)
 	router.Run(":" + defaultConfig.Server.Port)
 }

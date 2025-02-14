@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -16,7 +15,7 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d  # Mount init script
+      - ./init:/docker-entrypoint-initdb.d 
 
   # Redis Database
   redis:
@@ -43,7 +42,6 @@ services:
       - "8080:8080"
     volumes:
       - ./logs:/var/log/url-shortener
-
   # Cronjob for cleaning expired URLs
   url-cleaner:
     build:
@@ -61,7 +59,45 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/data/loki
+      - ./observability/loki-config.yaml:/etc/loki/config.yaml
+    command: -config.file=/etc/loki/config.yaml
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    ports:
+      - "9080:9080"
+    volumes:
+      - ./observability/promtail-config.yaml:/etc/promtail/config.yaml 
+      - ./logs:/var/log/url-shortener
+      - promtail_positions:/var/lib/promtail
+    depends_on:
+      - loki
+    command: -config.file=/etc/promtail/config.yaml
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"  # not for production
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin #  not for production
+    depends_on:
+      - loki
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
 volumes:
   postgres_data:
   redis_data:
+  loki_data:
+  promtail_positions:
+  grafana_data:
+  observability:

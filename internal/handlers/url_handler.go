@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 	api "url-shortener/generated"
 	"url-shortener/internal/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 type URLHandler struct {
@@ -25,10 +25,9 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request payload"})
 		return
 	}
-
 	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, req.Expiry)
 	if err != nil {
-		log.Printf(err.Error())
+		log.Print(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create short URL"})
 		return
 	}
@@ -57,7 +56,7 @@ func (h *URLHandler) RedirectToOriginalUrl(ctx *gin.Context, shortPath string) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
-	ctx.Redirect(http.StatusTemporaryRedirect, longURL)
+	ctx.Redirect(http.StatusFound, longURL)
 }
 
 // DeleteShortURL implements URLService

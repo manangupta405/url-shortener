@@ -3,10 +3,12 @@ package repositories
 import (
 	"context"
 	"errors"
-	"log"
+
 	"time"
 	"url-shortener/internal/models"
 	"url-shortener/internal/utils"
+
+	"github.com/rs/zerolog/log"
 )
 
 type urlRepositoryImpl struct {
@@ -28,7 +30,7 @@ func (r *urlRepositoryImpl) GetShortURL(ctx context.Context, originalURL string)
 		go func() {
 			err = r.redisRepo.InsertShortURL(context.Background(), url)
 			if err != nil {
-				log.Printf("Error inserting to redis" + err.Error())
+				log.Print("Error inserting to redis" + err.Error())
 			}
 		}()
 
