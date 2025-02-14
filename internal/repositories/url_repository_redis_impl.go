@@ -57,7 +57,11 @@ func (r *urlRepositoryRedisImpl) InsertShortURL(ctx context.Context, url *models
 	if err != nil {
 		return err
 	}
-	err = r.client.Set(ctx, url.ShortPath, string(data), r.cacheExpiry).Err()
+	expiry := r.cacheExpiry
+	if url.Expiry != nil && time.Until(*url.Expiry) < (expiry) {
+		expiry = time.Until(*url.Expiry)
+	}
+	err = r.client.Set(ctx, url.ShortPath, string(data), expiry).Err()
 	if err != nil {
 		return err
 	}
