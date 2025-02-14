@@ -3,6 +3,7 @@ module url-shortener
 go 1.23.4
 
 require (
+	github.com/aidarkhanov/nanoid v1.0.8
 	github.com/getkin/kin-openapi v0.129.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/oapi-codegen/runtime v1.1.1
