@@ -28,3 +28,5 @@ config.json
 
 .vscode*
 cmd/server/__debug*
+
+postgres_data*

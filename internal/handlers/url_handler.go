@@ -41,3 +41,13 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusCreated, response)
 }
+
+func (h *URLHandler) RedirectToLongURL(ctx *gin.Context) {
+	shortPath := ctx.Param("shortPath")
+	longURL, err := h.service.GetLongURL(ctx, shortPath)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to redirect"})
+		return
+	}
+	ctx.Redirect(http.StatusTemporaryRedirect, longURL)
+}

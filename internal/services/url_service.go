@@ -11,6 +11,7 @@ import (
 //go:generate mockery --name=URLService --output=./mocks
 type URLService interface {
 	CreateShortURL(ctx context.Context, originalURL string, expiry *time.Time) (string, error)
+	GetLongURL(ctx context.Context, shortPath string) (string, error)
 }
 
 type urlServiceImpl struct {
@@ -23,7 +24,15 @@ func NewURLService(repo repositories.URLRepository, idGenerator utils.NanoIDGene
 	return &urlServiceImpl{repo: repo, idGenerator: idGenerator, timeProvider: timeProvider}
 }
 
+// CreateShortURL implements URLService.
 func (s *urlServiceImpl) CreateShortURL(ctx context.Context, originalURL string, expiry *time.Time) (string, error) {
+	shortUrl, err := s.repo.GetShortURL(ctx, originalURL)
+	if err != nil {
+		return "", err
+	}
+	if shortUrl != nil {
+		return shortUrl.ShortPath, nil
+	}
 	currentTime := s.timeProvider.Now()
 	shortURL := &models.URL{
 		OriginalURL: originalURL,
@@ -44,4 +53,13 @@ func (s *urlServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 	}
 
 	return shortPath, nil
+}
+
+// GetLongURL implements URLService.
+func (s *urlServiceImpl) GetLongURL(ctx context.Context, shortPath string) (string, error) {
+	url, err := s.repo.GetOriginalURL(ctx, shortPath)
+	if err != nil {
+		return "", err
+	}
+	return url.OriginalURL, nil
 }
