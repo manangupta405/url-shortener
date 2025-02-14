@@ -1,0 +1,40 @@
+@startuml
+
+actor User
+
+boundary API as "URL Shortener API"
+
+database Redis as "Redis (Read-through LRU Cache)"
+database DB as "Primary DB (Cassandra / PostgreSQL)"
+
+User -> API: POST /urls (originalUrl)
+activate API
+API -> API: Validate input URL
+API -> Redis: Check cache for originalUrl
+Redis --> API: Return existing short URL (if found)
+API -> DB: Check if URL exists (if not in cache)
+DB --> API: Return existing short URL (if found)
+API -> API: Create short URL using NanoID
+API -> DB: Store new short URL and originalUrl (if not found)
+API -> Redis: Cache new short URL mapping
+API --> User: Return short URL
+deactivate API
+
+User -> API: GET /{short-code}
+activate API
+API -> Redis: Check cache for short URL
+Redis --> API: Return original URL (if found)
+API -> DB: Query DB (if not in cache)
+DB --> API: Return original URL (if found)
+API -> Redis: Cache original URL for future requests with LRU eviction
+API --> User: 302 : Redirect to original URL
+deactivate API
+
+User -> API: PUT /urls/{short-code} (update originalUrl)
+activate API
+API -> DB: Update original URL mapping
+API -> Redis: Invalidate cache for short-code
+API --> User: Return updated short URL
+deactivate API
+
+@enduml
