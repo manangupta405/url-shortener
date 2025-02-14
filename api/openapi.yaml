@@ -5,7 +5,7 @@ info:
   title: "URL Shortener API"
   description: "A REST API for shortening URLs, managing them, and handling redirects."
 servers:
-  - url: https://localhost
+  - url: http://localhost:8080
 paths:
   /urls:
     post:

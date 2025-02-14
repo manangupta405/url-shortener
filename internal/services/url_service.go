@@ -64,6 +64,9 @@ func (s *urlServiceImpl) GetLongURL(ctx context.Context, shortPath string) (stri
 	if err != nil {
 		return "", err
 	}
+	if url == nil {
+		return "", nil
+	}
 	return url.OriginalURL, nil
 }
 
@@ -78,10 +81,14 @@ func (s *urlServiceImpl) DeleteURL(ctx context.Context, shortPath string) error 
 
 // UpdateShortURL implements URLService
 func (s *urlServiceImpl) UpdateShortURL(ctx context.Context, originalUrl string, shortUrl string, expiry *time.Time) error {
+	currentTime := s.timeProvider.Now()
+	modifiedBy := "system"
 	urlUpdate := &models.URL{
 		OriginalURL: originalUrl,
 		ShortPath:   shortUrl,
 		Expiry:      expiry,
+		ModifiedAt:  &currentTime,
+		ModifiedBy:  &modifiedBy,
 	}
 	err := s.repo.UpdateShortURL(ctx, urlUpdate)
 	if err != nil {
@@ -95,6 +102,9 @@ func (s *urlServiceImpl) GetURLDetails(ctx context.Context, shortPath string) (*
 	url, err := s.repo.GetOriginalURL(ctx, shortPath)
 	if err != nil {
 		return nil, err
+	}
+	if url == nil {
+		return nil, nil
 	}
 	return url, nil
 }

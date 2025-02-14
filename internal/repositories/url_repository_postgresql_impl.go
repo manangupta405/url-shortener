@@ -26,6 +26,9 @@ func (r *urlRepositoryPostgresqlImpl) GetShortURL(ctx context.Context, originalU
 		}
 		return nil, err
 	}
+	if url.Expiry != nil && url.Expiry.Before(time.Now()) {
+		return nil, nil
+	}
 	return url, nil
 }
 
@@ -39,6 +42,9 @@ func (r *urlRepositoryPostgresqlImpl) GetOriginalURL(ctx context.Context, shortP
 			return nil, nil
 		}
 		return nil, err
+	}
+	if url.Expiry != nil && url.Expiry.Before(time.Now()) {
+		return nil, nil
 	}
 	return url, nil
 }

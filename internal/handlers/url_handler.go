@@ -23,7 +23,7 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 		return
 	}
 
-	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, nil)
+	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, req.Expiry)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create short URL"})
 		return
@@ -49,6 +49,11 @@ func (h *URLHandler) RedirectToLongURL(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to redirect"})
 		return
 	}
+
+	if longURL == "" {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
 	ctx.Redirect(http.StatusTemporaryRedirect, longURL)
 }
 
@@ -71,7 +76,7 @@ func (h *URLHandler) UpdateShortURL(ctx *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateShortURL(ctx, req.OriginalUrl, ctx.Param("shortPath"), nil)
+	err := h.service.UpdateShortURL(ctx, req.OriginalUrl, ctx.Param("shortPath"), req.Expiry)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update short URL"})
 		return
@@ -86,6 +91,10 @@ func (h *URLHandler) GetURLDetails(ctx *gin.Context) {
 	urlDetails, err := h.service.GetURLDetails(ctx, shortPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get URL details"})
+		return
+	}
+	if urlDetails == nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 	ctx.JSON(http.StatusOK, urlDetails)
