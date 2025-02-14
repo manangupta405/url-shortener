@@ -25,3 +25,6 @@ go.work.sum
 .env
 # config file 
 config.json
+
+.vscode*
+cmd/server/__debug*

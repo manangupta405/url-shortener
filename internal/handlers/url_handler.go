@@ -3,16 +3,17 @@ package handlers
 import (
 	"net/http"
 	api "url-shortener/generated"
+	"url-shortener/internal/services"
 
-	"github.com/aidarkhanov/nanoid"
 	"github.com/gin-gonic/gin"
 )
 
 type URLHandler struct {
+	service services.URLService
 }
 
-func NewURLHandler() *URLHandler {
-	return &URLHandler{}
+func NewURLHandler(service services.URLService) *URLHandler {
+	return &URLHandler{service: service}
 }
 
 func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
@@ -22,7 +23,17 @@ func (h *URLHandler) CreateShortUrl(ctx *gin.Context) {
 		return
 	}
 
-	shortUrl := nanoid.New()
+	shortPath, err := h.service.CreateShortURL(ctx, req.OriginalUrl, nil)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create short URL"})
+		return
+	}
+
+	scheme := "http"
+	if ctx.Request.TLS != nil {
+		scheme = "https"
+	}
+	shortUrl := scheme + "://" + ctx.Request.Host + "/" + shortPath
 
 	response := &api.ShortenedUrlDetails{
 		OriginalUrl: &req.OriginalUrl,

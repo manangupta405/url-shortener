@@ -44,8 +44,8 @@ func (r *urlRepositoryPostgresqlImpl) GetOriginalURL(ctx context.Context, shortP
 }
 
 // UpdateShortURL implements URLRepository.
-func (r *urlRepositoryPostgresqlImpl) UpdateShortURL(ctx context.Context, url *models.URL, currentTime time.Time) error {
-	_, err := r.db.ExecContext(ctx, PG_UPDATE_SHORT_URL, url.OriginalURL, url.Expiry, currentTime, "system", url.ShortPath)
+func (r *urlRepositoryPostgresqlImpl) UpdateShortURL(ctx context.Context, url *models.URL) error {
+	_, err := r.db.ExecContext(ctx, PG_UPDATE_SHORT_URL, url.OriginalURL, url.Expiry, url.ModifiedAt, url.ModifiedBy, url.ShortPath)
 	return err
 }
 
@@ -56,7 +56,7 @@ func (r *urlRepositoryPostgresqlImpl) DeleteShortURL(ctx context.Context, shortP
 }
 
 // InsertShortURL implements URLRepository.
-func (r *urlRepositoryPostgresqlImpl) InsertShortURL(ctx context.Context, url *models.URL, currentTime time.Time) error {
-	_, err := r.db.ExecContext(ctx, PG_INSERT_SHORT_URL, url.ShortPath, url.OriginalURL, url.Expiry, currentTime, "system") // using system now, will be replaced by user
+func (r *urlRepositoryPostgresqlImpl) InsertShortURL(ctx context.Context, url *models.URL) error {
+	_, err := r.db.ExecContext(ctx, PG_INSERT_SHORT_URL, url.ShortPath, url.OriginalURL, url.Expiry, url.CreatedAt, url.CreatedBy) // using system now, will be replaced by user
 	return err
 }
