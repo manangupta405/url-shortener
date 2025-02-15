@@ -22,6 +22,7 @@ A simple REST API to shorten urls.
 * **Top 10 Short URLs:** Tracks the most accessed short URLs.  
 ![Grafana Dashboard](out/ui/grafana.png)
 
+## [Grafana Link](http://localhost:3000)
 
 # Architechture
 ![URL Shortener Architecture](out/architechture/url-shortener/url-shortener.png)
